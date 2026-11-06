@@ -6,7 +6,7 @@ globalThis.__testEnv={DB:{prepare(sql){let args=[];return {bind(...v){args=v;ret
 const source=(await fs.readFile('app/api/ranking/route.ts','utf8')).replace("import {env} from 'cloudflare:workers';","const env=globalThis.__testEnv;");
 const compiled=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;
 const {POST}=await import('data:text/javascript;base64,'+Buffer.from(compiled).toString('base64'));
-const r={id:crypto.randomUUID(),player:crypto.randomUUID(),secret:crypto.randomUUID(),name:'검수일꾼',mode:'speed',duration:10,taps:70,times:Array.from({length:70},(_,i)=>i/7)};
+const r={id:crypto.randomUUID(),player:crypto.randomUUID(),secret:crypto.randomUUID(),name:'검수일꾼',epoch:'20261106-01',mode:'speed',duration:10,taps:70,times:Array.from({length:70},(_,i)=>i/7)};
 const send=x=>POST(new Request('http://unit.test/api/ranking',{method:'POST',body:JSON.stringify(x)}));
 assert.equal((await send(r)).status,200);assert.equal((await send(r)).status,200);assert.equal(records.size,1);
 assert.equal((await send({...r,id:crypto.randomUUID(),secret:crypto.randomUUID()})).status,403);
@@ -18,7 +18,9 @@ console.log('PASS: API validation, ownership, replay idempotency, survival recal
 
 const hard={...r,id:crypto.randomUUID(),rules:2,mode:'survival',duration:35,taps:140,times:Array.from({length:140},(_,i)=>i/4)};
 assert.equal((await send(hard)).status,200);
-assert.equal(records.get(hard.id).mode,'survival-v2');
+assert.equal(records.get(hard.id).mode,'20261106-01:survival-v2');
 assert.equal((await send({...hard,id:crypto.randomUUID(),duration:40,taps:160,times:Array.from({length:160},(_,i)=>i/4)})).status,400);
 assert.equal((await send({...hard,id:crypto.randomUUID(),rules:7})).status,400);
 console.log('PASS: strengthened rules 35s, legacy rules retained, version-isolated storage');
+
+const before=records.size;const expired=await send({...r,id:crypto.randomUUID(),epoch:undefined});assert.equal((await expired.json()).expired,true);assert.equal(records.size,before);console.log('PASS: pre-reset offline replay excluded from new ranking');

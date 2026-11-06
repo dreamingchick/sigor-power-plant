@@ -6,3 +6,5 @@ export function gauge(g,t,n){return Math.max(0,Math.min(100,g+(n>=t?(n-t):(n-t)*
 export function score(best){return Math.round(((best.speed?.taps||0)/70+(best.endurance?.taps||0)/360+(best.survival?.duration||0)/90)*1000)}
 export function better(mode,a,b){return !b||(mode==='survival'?(a.duration>b.duration||a.duration===b.duration&&a.taps>b.taps):a.taps>b.taps)}
 export class TouchGate{constructor(){this.ids=new Set()}down(id){const ok=this.ids.size===0;this.ids.add(id);return ok}up(id){this.ids.delete(id)}clear(){this.ids.clear()}}
+export const RANKING_EPOCH='20261106-01';
+export function resetRankingState(state){if(state.rankingEpoch===RANKING_EPOCH)return false;state.previousRankingBest=state.best;state.best={};state.queue=[];state.rankingEpoch=RANKING_EPOCH;return true}
