@@ -1,0 +1,2 @@
+import {sqliteTable,text,integer} from 'drizzle-orm/sqlite-core';
+export const runs=sqliteTable('runs',{id:text('id').primaryKey(),player:text('player').notNull(),secret:text('secret').notNull(),name:text('name').notNull(),mode:text('mode').notNull(),taps:integer('taps').notNull(),duration:integer('duration').notNull()});

@@ -1,0 +1,3 @@
+import './globals.css';
+export const metadata={title:'시고르 발전소',description:'까악! 마을의 미래가 자네 손끝에 달렸네!',manifest:'/manifest.webmanifest'};
+export default function Layout({children}:{children:React.ReactNode}){return <html lang="ko"><head><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/><meta name="theme-color" content="#243e39"/></head><body>{children}</body></html>}

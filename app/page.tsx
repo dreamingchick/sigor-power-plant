@@ -1,0 +1,1 @@
+export default function Page(){return <iframe title="시고르 발전소" src="/game.html" style={{position:'fixed',inset:0,width:'100%',height:'100%',border:0}}/>}
