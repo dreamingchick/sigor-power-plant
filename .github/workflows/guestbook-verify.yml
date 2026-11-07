@@ -1,0 +1,40 @@
+name: Village guestbook checks
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [feature/v1-3-village-guestbook]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.25.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Validate mobile JavaScript
+        run: |
+          node --check public/game.mjs
+          node --check public/guestbook.mjs
+          node --check public/account.mjs
+          node --check public/core.mjs
+      - name: Verify application types
+        run: pnpm exec tsc --noEmit
+      - name: Regression and guestbook API tests
+        run: |
+          node tests/rules.test.mjs
+          node tests/account.test.mjs
+          node tests/api.test.mjs
+          node tests/guestbook.test.mjs
+          node tests/atomic-account-reset.test.mjs
+          node tests/guestbook-reactions.test.mjs
+

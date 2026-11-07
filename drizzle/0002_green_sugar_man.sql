@@ -1,0 +1,1 @@
+ALTER TABLE `guestbook_likes` ADD `reaction` integer DEFAULT 1 NOT NULL;
