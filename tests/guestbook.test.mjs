@@ -92,6 +92,35 @@ assert.equal((await data(await call("GET", null))).posts.length, 0);
 assert.equal(sqlite.prepare("SELECT COUNT(*) AS total FROM guestbook_likes").get().total, 0);
 console.log("PASS: existing ranking credentials required and full account reset removes posts and reactions");
 
+// A guestbook-only player may be publicly listed without any ranking run.
+ // The ranking APIs must still reject impersonation of that player ID.
+const lone = player();
+assert.equal((await post(lone, "게시판 전용 계정", "이웃")).status, 201);
+const rankSource = (await readFile("app/api/ranking/route.ts", "utf8"))
+  .replace("import {env} from 'cloudflare:workers';", "const env=globalThis.__guestbookTestEnv;");
+const rankJs = ts.transpileModule(rankSource, {
+  compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
+}).outputText;
+const ranking = await import("data:text/javascript;base64," + Buffer.from(rankJs).toString("base64"));
+const renamed = (identity, name) =>
+  ranking.PATCH(new Request("https://sigor.example/api/ranking", {
+    method: "PATCH", body: JSON.stringify({ ...identity, name }),
+  }));
+const forgedLone = { player: lone.player, secret: crypto.randomUUID() };
+assert.equal((await renamed(forgedLone, "사칭자")).status, 403);
+assert.equal((await renamed(lone, "새 이웃")).status, 200);
+assert.equal((await data(await call("GET", null))).posts.find(x => x.player === lone.player).name, "새 이웃");
+const rankingRun = (identity) => ({
+  ...identity, name: "새 이웃", epoch: "20261106-01", id: crypto.randomUUID(),
+  mode: "speed", duration: 10, taps: 7, times: [0, 1, 2, 3, 4, 5, 6],
+});
+const sendRanking = identity => ranking.POST(new Request("https://sigor.example/api/ranking", {
+  method: "POST", body: JSON.stringify(rankingRun(identity)),
+}));
+assert.equal((await sendRanking(forgedLone)).status, 403);
+assert.equal((await sendRanking(lone)).status, 200);
+console.log("PASS: guestbook-only accounts are protected from ranking submission and rename forgery");
+
 const clock = Date.now;
 let fakeTime = clock() + 100_000;
 Date.now = () => fakeTime;
