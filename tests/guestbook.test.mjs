@@ -120,6 +120,7 @@ const sendRanking = identity => ranking.POST(new Request("https://sigor.example/
 assert.equal((await sendRanking(forgedLone)).status, 403);
 assert.equal((await sendRanking(lone)).status, 200);
 console.log("PASS: guestbook-only accounts are protected from ranking submission and rename forgery");
+assert.equal((await call("DELETE", { ...lone, scope: "account" })).status, 200);
 
 const clock = Date.now;
 let fakeTime = clock() + 100_000;
