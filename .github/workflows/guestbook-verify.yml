@@ -35,3 +35,5 @@ jobs:
           node tests/account.test.mjs
           node tests/api.test.mjs
           node tests/guestbook.test.mjs
+          node tests/atomic-account-reset.test.mjs
+
