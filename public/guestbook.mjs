@@ -119,6 +119,9 @@ export function renderGuestbook({ root, getIdentity, toast, registerName }) {
         '<div class="guestbook-actions"><button type="button" data-like="' + post.id + '"' +
         ' aria-pressed="' + Boolean(post.liked) + '" class="guestbook-like ' + (post.liked ? "on" : "") + '"' +
         (!me().name ? " disabled" : "") + '>♥ 좋아요 ' + Number(post.likes || 0) + '</button>' +
+        '<button type="button" data-dislike="' + post.id + '"' +
+        ' aria-pressed="' + Boolean(post.disliked) + '" class="guestbook-dislike ' + (post.disliked ? "on" : "") + '"' +
+        (!me().name ? " disabled" : "") + '>👎 싫어요 ' + Number(post.dislikes || 0) + '</button>' +
         (mine ? '<button type="button" class="guestbook-delete" data-delete="' + post.id + '">삭제</button>' : '') +
         '</div></article>';
     }).join("") : '<div class="empty">아직 남겨진 글이 없습니다.<br>마을의 첫 인사를 전해보세요!</div>';
@@ -160,18 +163,19 @@ export function renderGuestbook({ root, getIdentity, toast, registerName }) {
     const button = event.target.closest("button");
     if (!button || busy) return;
     const likeId = button.getAttribute("data-like");
+    const dislikeId = button.getAttribute("data-dislike");
     const deleteId = button.getAttribute("data-delete");
-    if (!likeId && !deleteId) return;
+    if (!likeId && !dislikeId && !deleteId) return;
     if (!me().name) { registerName(); return; }
     if (deleteId && !confirm("이 게시글을 삭제하시겠습니까? 삭제 후에는 복구할 수 없습니다.")) return;
     busy = true;
     button.disabled = true;
     try {
-      const target = Number(likeId || deleteId);
-      if (likeId) {
-        const updated = await request("POST", { action: "like", ...identity(), id: target });
+      const target = Number(likeId || dislikeId || deleteId);
+      if (likeId || dislikeId) {
+        const updated = await request("POST", { action: likeId ? "like" : "dislike", ...identity(), id: target });
         const post = posts.find(post => post.id === target);
-        if (post) { post.liked = updated.liked; post.likes = updated.likes; }
+        if (post) { post.liked = updated.liked; post.disliked = updated.disliked; post.likes = updated.likes; post.dislikes = updated.dislikes; }
       } else {
         await request("DELETE", { ...identity(), id: target });
         posts = posts.filter(post => post.id !== target);
@@ -192,3 +196,4 @@ export function renderGuestbook({ root, getIdentity, toast, registerName }) {
     if (present() && document.visibilityState === "visible" && posts.length <= 20) load(false, true);
   }, 30_000);
 }
+

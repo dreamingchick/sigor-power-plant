@@ -26,3 +26,5 @@
 .guestbook-actions button.guestbook-like.on{color:#a04754;background:#fff0f1;border-color:#efc7cd}
 .guestbook-actions button.guestbook-delete{margin-left:auto;color:#994c3c;border-color:#dfc5b9}
 .guestbook-more{width:100%;margin:9px 0 15px}
+
+.guestbook-actions{flex-wrap:wrap}.guestbook-actions button.guestbook-dislike.on{color:#426b8d;background:#edf4fb;border-color:#b8cee2}

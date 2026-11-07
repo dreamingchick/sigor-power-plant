@@ -16,6 +16,7 @@ export const guestbookPosts = sqliteTable('guestbook_posts', {
 export const guestbookLikes = sqliteTable('guestbook_likes', {
   postId: integer('post_id').notNull(),
   player: text('player').notNull(),
+  reaction: integer('reaction').notNull().default(1),
 }, table => [
   primaryKey({ columns: [table.postId, table.player] }),
 ]);
@@ -23,3 +24,4 @@ export const guestbookRate = sqliteTable('guestbook_rate', {
   player: text('player').primaryKey(),
   lastPostAt: integer('last_post_at').notNull(),
 });
+

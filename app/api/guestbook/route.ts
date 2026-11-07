@@ -110,14 +110,16 @@ export async function GET(req: Request) {
     if (cursor !== null && (!Number.isSafeInteger(before) || before < 1)) invalid(400, "페이지 정보를 확인해 주세요.");
     const rows = await db.prepare(
       "SELECT p.id,p.player,p.name,p.body,p.created_at AS createdAt," +
-      "(SELECT COUNT(*) FROM guestbook_likes l WHERE l.post_id=p.id) AS likes," +
-      "EXISTS(SELECT 1 FROM guestbook_likes l WHERE l.post_id=p.id AND l.player=?) AS liked " +
+      "(SELECT COUNT(*) FROM guestbook_likes l WHERE l.post_id=p.id AND l.reaction=1) AS likes," +
+      "(SELECT COUNT(*) FROM guestbook_likes l WHERE l.post_id=p.id AND l.reaction=-1) AS dislikes," +
+      "EXISTS(SELECT 1 FROM guestbook_likes l WHERE l.post_id=p.id AND l.player=? AND l.reaction=1) AS liked," +
+      "EXISTS(SELECT 1 FROM guestbook_likes l WHERE l.post_id=p.id AND l.player=? AND l.reaction=-1) AS disliked " +
       "FROM guestbook_posts p WHERE p.id<? ORDER BY p.id DESC LIMIT ?"
-    ).bind(player, before, PAGE_SIZE + 1).all<{
-      id: number; player: string; name: string; body: string; createdAt: number; likes: number; liked: number;
+    ).bind(player, player, before, PAGE_SIZE + 1).all<{
+      id: number; player: string; name: string; body: string; createdAt: number; likes: number; dislikes: number; liked: number; disliked: number;
     }>();
     const more = rows.results.length > PAGE_SIZE;
-    const posts = rows.results.slice(0, PAGE_SIZE).map(row => ({ ...row, liked: Boolean(row.liked) }));
+    const posts = rows.results.slice(0, PAGE_SIZE).map(row => ({ ...row, liked: Boolean(row.liked), disliked: Boolean(row.disliked) }));
     return json({ posts, nextCursor: more ? posts[posts.length - 1].id : null });
   });
 }
@@ -130,20 +132,23 @@ export async function POST(req: Request) {
     const id = identityOf(data);
     await verifyPlayer(db, id, true);
 
-    if (data.action === "like") {
+    if (data.action === "like" || data.action === "dislike") {
       const target = postId(data.id);
       const post = await db.prepare("SELECT id FROM guestbook_posts WHERE id=?").bind(target).first();
       if (!post) invalid(404, "이미 삭제된 게시글입니다.");
-      const old = await db.prepare("SELECT 1 AS liked FROM guestbook_likes WHERE post_id=? AND player=?")
-        .bind(target, id.player).first();
-      if (old) {
-        await db.prepare("DELETE FROM guestbook_likes WHERE post_id=? AND player=?").bind(target, id.player).run();
-      } else {
-        await db.prepare("INSERT OR IGNORE INTO guestbook_likes(post_id,player) VALUES(?,?)").bind(target, id.player).run();
-      }
-      const updated = await db.prepare("SELECT COUNT(*) AS likes FROM guestbook_likes WHERE post_id=?")
-        .bind(target).first<{ likes: number }>();
-      return json({ ok: true, liked: !old, likes: updated?.likes ?? 0 });
+      const reaction = data.action === "like" ? 1 : -1;
+      // One SQL statement toggles or switches the player's sole reaction atomically.
+      await db.prepare(
+        "INSERT INTO guestbook_likes(post_id,player,reaction) VALUES(?,?,?) " +
+        "ON CONFLICT(post_id,player) DO UPDATE SET reaction=" +
+        "CASE WHEN guestbook_likes.reaction=excluded.reaction THEN 0 ELSE excluded.reaction END"
+      ).bind(target, id.player, reaction).run();
+      const updated = await db.prepare(
+        "SELECT COALESCE(SUM(reaction=1),0) AS likes,COALESCE(SUM(reaction=-1),0) AS dislikes," +
+        "COALESCE(MAX(CASE WHEN player=? THEN reaction END),0) AS mine " +
+        "FROM guestbook_likes WHERE post_id=?"
+      ).bind(id.player,target).first<{ likes:number; dislikes:number; mine:number }>();
+      return json({ ok: true, liked: updated?.mine === 1, disliked: updated?.mine === -1, likes: updated?.likes ?? 0, dislikes: updated?.dislikes ?? 0 });
     }
 
     if (data.action !== "post") invalid(400, "요청 기능을 확인해 주세요.");
@@ -200,3 +205,4 @@ export async function DELETE(req: Request) {
     return json({ ok: true });
   });
 }
+

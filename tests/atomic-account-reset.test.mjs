@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {DatabaseSync} from 'node:sqlite';
 import ts from 'typescript';
-const schema=(await readFile('drizzle/0000_organic_gabe_jones.sql','utf8'))+(await readFile('drizzle/0001_village_guestbook.sql','utf8')).replaceAll('--> statement-breakpoint','');
+const schema=(await readFile('drizzle/0000_organic_gabe_jones.sql','utf8'))+(await readFile('drizzle/0001_village_guestbook.sql','utf8')).replaceAll('--> statement-breakpoint','')+(await readFile('drizzle/0002_green_sugar_man.sql','utf8'));
 globalThis.__atomicEnv={DB:null};
 const source=(await readFile('app/api/ranking/route.ts','utf8')).replace("import {env} from 'cloudflare:workers';",'const env=globalThis.__atomicEnv;');
 const output=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;
@@ -15,7 +15,7 @@ async function fixture(){
  let failAt=-1,mutations=0,batches=0;
  for(const [id,who,mode] of [['own-current',a,'20261106-01:speed'],['own-old',a,'speed'],['other',b,'20261106-01:speed']])sql.prepare('INSERT INTO runs VALUES(?,?,?,?,?,?,?)').run(id,who.player,who.secret,'선수',mode,70,10);
  for(const who of [a,b]){const hash=Buffer.from(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(who.secret))).toString('hex');sql.prepare('INSERT INTO guestbook_players VALUES(?,?,?)').run(who.player,hash,1);sql.prepare('INSERT INTO guestbook_rate VALUES(?,?)').run(who.player,1);sql.prepare('INSERT INTO guestbook_posts(player,name,body,created_at) VALUES(?,?,?,?)').run(who.player,'선수','안녕',1)}
- sql.prepare('INSERT INTO guestbook_likes VALUES(?,?)').run(1,b.player);sql.prepare('INSERT INTO guestbook_likes VALUES(?,?)').run(2,a.player);
+ sql.prepare('INSERT INTO guestbook_likes(post_id,player) VALUES(?,?)').run(1,b.player);sql.prepare('INSERT INTO guestbook_likes(post_id,player) VALUES(?,?)').run(2,a.player);
  const db={prepare(query){let args=[];return{bind(...values){args=values;return this},async first(){return sql.prepare(query).get(...args)||null},async run(){if(mutations++===failAt)throw Error('Injected failure');return sql.prepare(query).run(...args)}}},async batch(queries){batches++;sql.exec('BEGIN');try{const result=[];for(const q of queries)result.push(await q.run());sql.exec('COMMIT');return result}catch(e){sql.exec('ROLLBACK');throw e}}};
  const snapshot=()=>Object.fromEntries(tables.map(t=>[t,sql.prepare('SELECT * FROM '+t+' ORDER BY 1,2').all()]));
  return {sql,db,snapshot,fail(i){failAt=i;mutations=0},get batches(){return batches}};

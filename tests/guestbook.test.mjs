@@ -8,6 +8,7 @@ const migration0 = await readFile("drizzle/0000_organic_gabe_jones.sql", "utf8")
 const migration1 = await readFile("drizzle/0001_village_guestbook.sql", "utf8");
 sqlite.exec(migration0);
 sqlite.exec(migration1.replaceAll("--> statement-breakpoint", ""));
+sqlite.exec(await readFile("drizzle/0002_green_sugar_man.sql", "utf8"));
 
 const db = {
   prepare(sql) {
@@ -68,9 +69,9 @@ const id = result.posts[0].id;
 
 assert.equal((await post({ ...a, secret: b.secret }, "forged")).status, 403);
 assert.equal((await like(b, id)).status, 200);
-assert.deepEqual(await data(await like(b, id)), { ok: true, liked: false, likes: 0 });
+assert.deepEqual(await data(await like(b, id)), { ok: true, liked: false, disliked: false, likes: 0, dislikes: 0 });
 const liked = await data(await like(b, id));
-assert.deepEqual(liked, { ok: true, liked: true, likes: 1 });
+assert.deepEqual(liked, { ok: true, liked: true, disliked: false, likes: 1, dislikes: 0 });
 assert.equal((await data(await call("GET", null, "?player=" + b.player))).posts[0].liked, true);
 assert.equal((await call("DELETE", { ...b, id })).status, 403);
 assert.equal((await call("DELETE", { ...a, id })).status, 200);
@@ -152,3 +153,4 @@ try {
   Date.now = clock;
   sqlite.close();
 }
+
