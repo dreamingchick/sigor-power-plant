@@ -15,16 +15,30 @@ function showDate(timestamp) {
 }
 
 async function request(method, payload, suffix = "") {
-  const options = { method, cache: "no-store" };
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15_000);
+  const options = { method, cache: "no-store", signal: controller.signal };
   if (payload) {
     options.headers = { "Content-Type": "application/json" };
     options.body = JSON.stringify(payload);
   }
-  const response = await fetch("/api/guestbook" + suffix, options);
-  let data;
-  try { data = await response.json(); } catch { data = {}; }
-  if (!response.ok) throw new Error(data.error || "마을 게시판 연결을 확인해 주세요.");
-  return data;
+  try {
+    const response = await fetch("/api/guestbook" + suffix, options);
+    let data;
+    try { data = await response.json(); } catch (error) {
+      if (controller.signal.aborted) throw error;
+      data = {};
+    }
+    if (!response.ok) throw new Error(data.error || "마을 게시판 연결을 확인해 주세요.");
+    return data;
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error("응답이 늦어지고 있습니다. 새로고침으로 반영 여부를 확인한 뒤 다시 시도해 주세요.");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export function leaveGuestbook() {
@@ -70,7 +84,7 @@ export function renderGuestbook({ root, getIdentity, toast, registerName }) {
     const name = me().name;
     if (!name) {
       writeBox.innerHTML =
-        '<h3>첫 방문이신가요?</h3><p class="sub">게시판에 글을 남기려면 먼저 선수 이름을 등록해 주세요.</p>' +
+        '<h3>첫 방문이신가요?</h3><p class="sub">글 작성과 좋아요·싫어요에는 선수 이름 등록이 필요합니다. 반응 버튼을 눌러도 등록할 수 있습니다.</p>' +
         '<button class="primary" type="button" id="gbRegister">선수 이름 등록하기</button>';
       writeBox.querySelector("#gbRegister").onclick = registerName;
       return;
@@ -118,10 +132,10 @@ export function renderGuestbook({ root, getIdentity, toast, registerName }) {
         '<p class="guestbook-body">' + escapeHtml(post.body) + '</p>' +
         '<div class="guestbook-actions"><button type="button" data-like="' + post.id + '"' +
         ' aria-pressed="' + Boolean(post.liked) + '" class="guestbook-like ' + (post.liked ? "on" : "") + '"' +
-        (!me().name ? " disabled" : "") + '>♥ 좋아요 ' + Number(post.likes || 0) + '</button>' +
+        (busy ? " disabled" : "") + '>♥ 좋아요 ' + Number(post.likes || 0) + '</button>' +
         '<button type="button" data-dislike="' + post.id + '"' +
         ' aria-pressed="' + Boolean(post.disliked) + '" class="guestbook-dislike ' + (post.disliked ? "on" : "") + '"' +
-        (!me().name ? " disabled" : "") + '>👎 싫어요 ' + Number(post.dislikes || 0) + '</button>' +
+        (busy ? " disabled" : "") + '>👎 싫어요 ' + Number(post.dislikes || 0) + '</button>' +
         (mine ? '<button type="button" class="guestbook-delete" data-delete="' + post.id + '">삭제</button>' : '') +
         '</div></article>';
     }).join("") : '<div class="empty">아직 남겨진 글이 없습니다.<br>마을의 첫 인사를 전해보세요!</div>';
@@ -169,7 +183,7 @@ export function renderGuestbook({ root, getIdentity, toast, registerName }) {
     if (!me().name) { registerName(); return; }
     if (deleteId && !confirm("이 게시글을 삭제하시겠습니까? 삭제 후에는 복구할 수 없습니다.")) return;
     busy = true;
-    button.disabled = true;
+    renderPosts();
     try {
       const target = Number(likeId || dislikeId || deleteId);
       if (likeId || dislikeId) {
@@ -185,7 +199,7 @@ export function renderGuestbook({ root, getIdentity, toast, registerName }) {
     } catch (error) { if (present()) toast(error.message); }
     finally {
       busy = false;
-      if (present()) button.disabled = false;
+      if (present()) renderPosts();
     }
   });
 
