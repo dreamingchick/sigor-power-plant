@@ -15,7 +15,7 @@ function cameFromArcade() {
     return Boolean(entered || sessionStorage.getItem('garu-arcade-entry') === '1');
   } catch { return Boolean(entered); }
 }
-const fromArcade=cameFromArcade();
+const fromArcade=true;
 const $=s=>document.querySelector(s),esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function uuid(){return '10000000-1000-4000-8000-100000000000'.replace(/[018]/g,c=>(Number(c)^crypto.getRandomValues(new Uint8Array(1))[0]&15>>Number(c)/4).toString(16))}
 let saved;try{saved=JSON.parse(localStorage.getItem('sigor-v1'))}catch{}let state=saved||{player:uuid(),secret:uuid(),name:'',energy:0,best:{},queue:[],settings:{music:true,sound:true,vibrate:true}};
